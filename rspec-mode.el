@@ -51,6 +51,8 @@
 ;;
 ;;; Change Log:
 ;;
+;; 1.22 - Display error message when `rspec-spec-or-target' can't
+;;        determine the filename.
 ;; 1.21 - New option `rspec-docker-file-name'.
 ;; 1.20 - Fix a regression of `rspec-run-last-failed'
 ;; 1.19 - Fix bugs about change of buffer naming
@@ -518,7 +520,7 @@ in long-running test suites."
 If the current buffer is visiting a spec file, switches to the
 target, otherwise the spec."
   (interactive)
-  (find-file (rspec-spec-or-target)))
+  (find-file (rspec-spec-or-target 'error)))
 
 (defun rspec-verify-method ()
   "Just like `rspec-verify-single' but tries to find examples for
@@ -526,7 +528,7 @@ the method at point."
   (interactive)
   (save-excursion
     (when (rspec--toggle-spec-and-target-find-method
-           (lambda () (set-buffer (find-file-noselect (rspec-spec-or-target)))))
+           (lambda () (set-buffer (find-file-noselect (rspec-spec-or-target 'error)))))
       (rspec-verify-single))))
 
 (defun rspec--toggle-spec-and-target-find-method (toggle-function)
@@ -568,7 +570,7 @@ the method and its corresponding examples."
 If the current buffer is visiting a spec file, finds the target,
 otherwise the spec."
   (interactive)
-  (find-file-other-window (rspec-spec-or-target)))
+  (find-file-other-window (rspec-spec-or-target 'error)))
 
 (defun rspec-find-spec-or-target-find-example-other-window ()
   "Find in the other window the spec or the target file, and try
@@ -576,10 +578,15 @@ to navigate to the example or method corresponding to point."
   (interactive)
   (rspec--toggle-spec-and-target-find-method 'rspec-find-spec-or-target-other-window))
 
-(defun rspec-spec-or-target ()
-  (if (rspec-buffer-is-spec-p)
-      (rspec-target-file-for (buffer-file-name))
-    (rspec-spec-file-for (buffer-file-name))))
+(defun rspec-spec-or-target (&optional error-message-if-not-found)
+  (let ((is-spec (rspec-buffer-is-spec-p)))
+    (or
+     (if is-spec
+	 (rspec-target-file-for (buffer-file-name))
+       (rspec-spec-file-for (buffer-file-name)))
+     (if error-message-if-not-found
+	 (error "Unable to find or create corresponding %s file"
+		(if is-spec "target" "spec"))))))
 
 (defun rspec-spec-file-for (a-file-name)
   "Find spec for the specified file."
